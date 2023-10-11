@@ -14,7 +14,7 @@ HQUIC Registration;
 HQUIC Configuration;
 const uint16_t UdpPort = 4567; //unsigned short  value 
 const QUIC_REGISTRATION_CONFIG RegConfig = {"quicsample", QUIC_EXECUTION_PROFILE_LOW_LATENCY };
-const uint64_t IdleTimeoutMs = 1000; //long int 
+const uint64_t IdleTimeoutMs = 60000; //long int 
 const QUIC_BUFFER Alpn = { sizeof("sample") - 1, (uint8_t*)"sample"}; //signed char 
 const uint32_t SendBufferLength = 100;
 
@@ -179,7 +179,7 @@ QUIC_STATUS ServerConnectionHandler(HQUIC Connection, void* Context, QUIC_CONNEC
 return QUIC_STATUS_SUCCESS;
 }
 
-void ClientSend(HQUIC Connection) {
+void ClientSend(HQUIC Connection, uint8_t* data, int32_t len) {
 	QUIC_STATUS Status;
 	HQUIC Stream = NULL;
 	uint8_t* SendBufferRaw;
@@ -196,20 +196,19 @@ void ClientSend(HQUIC Connection) {
 		MsQuic->ConnectionShutdown(Connection, QUIC_CONNECTION_SHUTDOWN_FLAG_NONE,0);
 	}
 
-	SendBufferRaw = malloc(sizeof(QUIC_BUFFER) + SendBufferLength);
+	SendBufferRaw = malloc(sizeof(QUIC_BUFFER) + len);
 
 	if (SendBufferRaw == NULL) {
 		printf("Sendbuffer Allocation Failed\n");
 		MsQuic->ConnectionShutdown(Connection, QUIC_CONNECTION_SHUTDOWN_FLAG_NONE,0);
 		return;
 	}
-	const uint8_t* data = "testing data";
 	SendBuffer = (QUIC_BUFFER*)SendBufferRaw;
 	SendBuffer->Buffer = (uint8_t*)SendBufferRaw + sizeof(QUIC_BUFFER);
-	SendBuffer->Length = SendBufferLength;
-	memcpy(SendBuffer->Buffer, data, sizeof(data));
+	SendBuffer->Length = len;
+	memcpy(SendBuffer->Buffer, data, strlen(data));
 
-	printf("[strm][%p] Sending Data...\n", Stream);
+	printf("[strm][%p] Sending Data...:%s\n", Stream, data);
 
 	if(QUIC_FAILED(Status = MsQuic->StreamSend(Stream, SendBuffer, 1, QUIC_SEND_FLAG_FIN, SendBuffer)))  { 
 
@@ -243,14 +242,12 @@ return Status;
 
 QUIC_STATUS ClientConnectionCallback(HQUIC Connection, void* Context, QUIC_CONNECTION_EVENT* Event){ 
 	UNREFERENCED_PARAMETER(Context);
-
     switch (Event->Type) {
     case QUIC_CONNECTION_EVENT_CONNECTED:
         //
         // The handshake has completed for the connection.
         //
         printf("[conn][%p] Connected\n", Connection);
-        ClientSend(Connection);
         break;
     case QUIC_CONNECTION_EVENT_SHUTDOWN_INITIATED_BY_TRANSPORT:
         //
@@ -290,11 +287,16 @@ QUIC_STATUS ClientConnectionCallback(HQUIC Connection, void* Context, QUIC_CONNE
             printf("%.2X", (uint8_t)Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicket[i]);
         }
         printf("\n");
+	//uint8_t* data = malloc(100);	
+	//if(fgets(data,100,stdin)) {
+	//}
         break;
     default:
         break;
     }
+
     return QUIC_STATUS_SUCCESS;
+
 }
 
     
@@ -308,7 +310,7 @@ BOOLEAN ServerLoadConfiguration(int argc, char* argv[]) {
 	Settings.ServerResumptionLevel = QUIC_SERVER_RESUME_AND_ZERORTT;
 	Settings.IsSet.ServerResumptionLevel = TRUE; 
 
-	Settings.PeerBidiStreamCount = 1;
+	Settings.PeerBidiStreamCount = 100;
 	Settings.IsSet.PeerBidiStreamCount = TRUE;
 
 	QUIC_CREDENTIAL_CONFIG_HELPER Config;
@@ -383,6 +385,7 @@ void RunClient(int argc, char* argv[]) {
 				printf("Connection Open Failed\n");
 				
 				}
+	
 	const char* Target;
 	if((Target = GetValue(argc,argv,"target")) == NULL)  {
 		printf("Must specify target\n");
@@ -392,6 +395,21 @@ void RunClient(int argc, char* argv[]) {
 	if(QUIC_FAILED(Status = MsQuic->ConnectionStart(Connection, Configuration, AF_UNSPEC, Target, UdpPort))) {
 		printf("Connection Start Failed\n");
 	}
+
+	uint8_t* quit = "quit";	
+	while(1) {
+	uint8_t* data = malloc(100);
+	printf(":"); 
+	if(fgets(data,100,stdin)) {
+		int32_t len = strlen(data);
+		if(strncmp(data,quit,strlen(quit)) == 0) { 
+		MsQuic->ConnectionShutdown(Connection, QUIC_CONNECTION_SHUTDOWN_FLAG_NONE,0);
+		break;
+		}
+	else {	ClientSend(Connection,data,len); free(data);    	}
+	}
+	}
+	
 
 }
 
@@ -443,13 +461,13 @@ int main (int argc, char* argv[]) {
 	 * MsQuicOpen2 function returns QUIC_STATUS, in which SUCCESS is 0 and failed code are bigger than 0*/
 		
 		printf("MsQuicOpen2 Failed, 0x%x!\n", Status);
-//		goto Error;
+		goto Error;
 	}
 
 
 	if (QUIC_FAILED(Status = MsQuic->RegistrationOpen(&RegConfig, &Registration))) {
 		printf("Registration Failed, 0x%x!\n", Status);
-//		goto Error;
+		goto Error;
 	}
 
 	
