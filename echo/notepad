@@ -61,8 +61,3 @@ mutual exclusion lock: block access to variables by other threads. This enforces
 Joins: 
 waits for a threads to finish. One wait  for the completetion of the thrads with a join.
 
-
-
-
-	
-
