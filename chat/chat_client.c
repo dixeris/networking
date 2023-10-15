@@ -44,10 +44,10 @@ int main(int argc, char* argv[]) {
 		write(sockfd,data,MAXDATASIZE);
 
 		if(read(sockfd,buf,MAXDATASIZE) == 0) {
+			perror("read");
 			close(sockfd);
-			printf("server terminteed");
 		}
-		if(strncmp(buf,"quit",4) == 0) { close(sockfd); printf("exiting...\n"); break; }
+		if(strncmp(data,"quit",4) == 0) { close(sockfd); printf("exiting...\n"); break; }
 		printf("received: %s\n", buf);
 	}
 				
