@@ -1,0 +1,68 @@
+2023/10/14
+
+1. errno : set by system calls and some library function.
+idicates int errno, with list of all symbolic error names.
+
+Common mistake is to do:
+if(somecall() == -1) {
+printf("somecall() failed\n");
+if(errno = ...){ ...  }
+}
+where errno no longer needs to have the value it had upon the return from somecall() 
+(it may changed by the printf()) 
+to preserved across a library call, it must be saved as followed:
+int errsv = errno;
+
+
+
+2. fork() vs pthread_create():
+fork:
+- creating a new process, which becomes child process of the caller
+- two identical copipes of the computer's address space, code and stackers are created one for parent and child 
+
+pthread:
+- creating a new thread in the program which is given the same process of the caller 
+- threads within the same process shared memory 
+
+
+
+3. waitpid:
+suspends execution of the calling proces until a child specified by pid has changed state.
+A state change is considered to be: the child terminated; the child was stopped by signal; or the child was resumed by a signal
+In case of the terminated child, unless performing a wait to release the resources associated with the chlild, it reminas "ZOMBIE" state.
+
+-1: meaning wait for any child process
+0: meaning wait for any child process whose process group ID is equal to that of the calling process
+
+options is an OR of zero or:
+WNOHANG: return immediately if no child has exited.
+
+waitpid() return value: on success, return the process ID of the child whose state has changed, if WNOHANG is specified and
+one or more child specified by pid exist, but have not yet changed state, then 0 is retunred.
+
+signal: when a child stopped or terminated, SIGCHLD signal is generated.
+the kernel can perform one of three actions for each signal: Ignore, Default action, Catch and handle the signal 
+sigaction() & signal() function removes the current actio taken on receipt of the signal and instead handle the signal with the signal handler.
+sa_flag SA_RESTART: enabling BSD-style restarting of system call that are interrupted by signals.
+
+
+2023/10/15
+
+1. pthread
+threads share the same address space(heap etc..), signal, cwd, uid, gid etc..
+threads does not maintain a list of created threads nor does it know the thread that created it.
+
+
+Thread Synchronization: 
+
+Mutexes:
+mutual exclusion lock: block access to variables by other threads. This enforces exclusive access by a thread to a variables or set of variables.
+
+Joins: 
+waits for a threads to finish. One wait  for the completetion of the thrads with a join.
+
+
+
+
+	
+
