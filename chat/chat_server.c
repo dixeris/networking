@@ -107,8 +107,7 @@ int main() {
 						int strlen = read(pfds[i].fd, buffer, sizeof(buffer));
 					
 						if((strncmp(buffer,"quit",4) == 0) || (strncmp(buffer,"exit",4) == 0)) {
-							printf("client%d sent exit...\n", i);
-
+							printf("client%d sent exit...\n", pfds[i].fd);
 							close(pfds[i].fd);
 
 							remove_from_pfds(&pfds,i,&fd_count,&fd_size);
@@ -140,3 +139,5 @@ int main() {
 	free(pfds);
 	return 0;
 }//end main function 
+
+
