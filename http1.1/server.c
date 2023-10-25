@@ -73,7 +73,7 @@ const int GetListener(void) { //function for getting listener file descriptor
 	return listener;
 }
 
-void setHeader(char* realpath, char* Header) {	
+char* setHeader(char* realpath, char* Header) {	
 
 	char* indexpath = "/index.html";	
 	strcat(realpath, indexpath);
@@ -84,37 +84,48 @@ void setHeader(char* realpath, char* Header) {
 		exit(1);
 	}
 	free(realpath);
-	
+
 
 	char line[100];
-	char responsedata[8000];
-
+	int current_size = 8000;
+	char* responsedata = malloc(current_size); //if size of the responsedata is too  small for the file.. seg fault error will occur.
+	int inserted_size = 0;
 	while(fgets(line,100,htmldata) != 0) {
-		printf("%s",line);
-		strcat(responsedata,line);
-	}
+		if (inserted_size == current_size ) { responsedata = realloc(responsedata, (2 * current_size)); current_size *= 2; };
+		printf("%s",line);		
+		strcat(responsedata,line);	
+		inserted_size += 100;
+	}	
+
+		printf("size of responsedata is %d\n", strlen(responsedata));
+		Header = realloc(Header,current_size+25);
 		strcat(Header,responsedata);
+		return Header;
+//		free(responsedata); //invalid pointer error a
+//		fclose(htmldata); //corruption error 
+
 }
 
 void handle_client(char* realpath,int connection) {	
 	char* buffer = malloc(100);
 	char* httpOKHeader  = malloc(8000);
 	strcpy(httpOKHeader,"HTTP/1.1 200 OK\r\n\n");
-	char result;
 	if((read(connection,buffer,100)) == -1) { 
 		perror("read");
 	}
 	
 	else {	
 		printf("received:\n%s\n", buffer);
-		setHeader(realpath,httpOKHeader);	
-		write(connection,httpOKHeader,strlen(httpOKHeader));
+		httpOKHeader = setHeader(realpath, httpOKHeader);
+		write(connection,httpOKHeader,strlen(httpOKHeader)); 
 		free(httpOKHeader);
-		close(connection);		
-	}
-	
-	free(buffer);	
+		}
+
+		close(connection);
+		free(buffer);
+
 }
+	
 
 void RunServer(int argc, char* argv[]) { //Running server
 	int listener, connection;
