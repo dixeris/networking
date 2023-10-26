@@ -88,7 +88,9 @@ char* setGETHeader(char* dirpath, char* Header, char* path) {
 	printf("dirpath after = %s\n", dirpath2);
 	FILE* htmldata;
 	if((htmldata  = fopen(dirpath2, "r")) == 0) {
-		perror("fopen");
+		strcpy(Header, "HTTP/1.1 403 Forbidden\r\nContent-Type:text/html\r\n\n403 forbidden\n");		
+		return(Header);
+		perror("fopen");		
 		exit(1);
 	}
 	free(dirpath2);
@@ -123,7 +125,7 @@ char* setGETHeader(char* dirpath, char* Header, char* path) {
 
 void handle_client(char* dirpath,int connection) {	//setting the response message, reading the request line, 
 	char* buffer = malloc(100);
-	char* httpOKHeader  = malloc(8000);
+	char* httpHeader  = malloc(8000);
 
 	if((read(connection,buffer,100)) == -1) { 
 		perror("read");
@@ -135,10 +137,11 @@ void handle_client(char* dirpath,int connection) {	//setting the response messag
 	char* path = strtok(NULL, " ");
 	if((strcmp(method,"GET")) == 0)  { //if requested method is "GET", 
 
-		strcpy(httpOKHeader,"HTTP/1.1 200 OK\nContent-Type:text/html; charset=utf-8\r\n\n"); //setting the response Header
+		strcpy(httpHeader,"HTTP/1.1 200 OK\nContent-Type:text/html; charset=utf-8\r\n\n"); //setting the response Header
 
-		httpOKHeader = setGETHeader(dirpath, httpOKHeader, path); //setting the response body 
-		write(connection,httpOKHeader,strlen(httpOKHeader));  //sending to a client 
+		httpHeader = setGETHeader(dirpath, httpHeader, path); //setting the response body 
+		printf("httpHeader = %s\n", httpHeader);
+		write(connection,httpHeader,strlen(httpHeader));  //sending to a client 
 	}
 
 
@@ -149,8 +152,8 @@ void handle_client(char* dirpath,int connection) {	//setting the response messag
 	}*/		/*Other methods processing codes will be created*/	
 
 	
-	free(httpOKHeader);
-	httpOKHeader = NULL; 
+	free(httpHeader);
+	httpHeader = NULL; 
 
 	close(connection);
 	free(buffer);
