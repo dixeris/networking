@@ -73,18 +73,25 @@ const int GetListener(void) { //function for getting listener file descriptor
 	return listener;
 }
 
-char* setHeader(char* realpath, char* Header) {	
-	char* realpath2 = malloc(255);
-	strcpy(realpath2,realpath);	
-	char* indexpath = "/index.html";	
-	strcat(realpath2, indexpath);
-	printf("realpath after = %s\n", realpath2);
+char* setGETHeader(char* dirpath, char* Header, char* path) {	
+
+	char* dirpath2 = malloc(255);
+	strcpy(dirpath2,dirpath);	//setting directory path specified by args 
+
+	char lastpath = path[(strlen(path)-1)];
+	if(lastpath == '/') {
+	
+		strcat(path,"/index.html");
+	} //if last file is not specified in request, append the default index file path 
+
+	strcat(dirpath2, path);
+	printf("dirpath after = %s\n", dirpath2);
 	FILE* htmldata;
-	if((htmldata  = fopen(realpath2, "r")) == 0) {
+	if((htmldata  = fopen(dirpath2, "r")) == 0) {
 		perror("fopen");
 		exit(1);
 	}
-	free(realpath2);
+	free(dirpath2);
 
 
 	char line[100];
@@ -114,29 +121,44 @@ char* setHeader(char* realpath, char* Header) {
 
 }
 
-void handle_client(char* realpath,int connection) {	
+void handle_client(char* dirpath,int connection) {	//setting the response message, reading the request line, 
 	char* buffer = malloc(100);
 	char* httpOKHeader  = malloc(8000);
-	strcpy(httpOKHeader,"HTTP/1.1 200 OK\r\nContent-Type:text/html; charset=utf-8\r\n\n");
+
 	if((read(connection,buffer,100)) == -1) { 
 		perror("read");
+		exit(1);
 	}
-	
-	else {	
-		printf("received:\n%s\n", buffer);
-		httpOKHeader = setHeader(realpath, httpOKHeader);
-		write(connection,httpOKHeader,strlen(httpOKHeader)); 
-		free(httpOKHeader);
-		httpOKHeader = NULL;
-		}
+	printf("received:\n%s\n", buffer); //reading the request line 
 
-		close(connection);
-		free(buffer);
+	char* method = strtok(buffer, " "); 
+	char* path = strtok(NULL, " ");
+	if((strcmp(method,"GET")) == 0)  { //if requested method is "GET", 
+
+		strcpy(httpOKHeader,"HTTP/1.1 200 OK\nContent-Type:text/html; charset=utf-8\r\n\n"); //setting the response Header
+
+		httpOKHeader = setGETHeader(dirpath, httpOKHeader, path); //setting the response body 
+		write(connection,httpOKHeader,strlen(httpOKHeader));  //sending to a client 
+	}
+
+
+	/*else if (strcmp(method = strtok(buffer," ")),"POST") == 0} {
+
+			strcpy(httpOKHeader,"HTTP/1.1 200 OK\n\Content-Type:text/html; charset=utf-8\r\n\n"); //setting the response Header
+
+	}*/		/*Other methods processing codes will be created*/	
+
+	
+	free(httpOKHeader);
+	httpOKHeader = NULL; 
+
+	close(connection);
+	free(buffer);
 
 }
 	
 
-void RunServer(int argc, char* argv[]) { //Running server
+void RunServer(int argc, char* argv[]) { //creating variables indicating the index file location specified by args, and running accept loop with handle_client function 
 	int listener, connection;
 	const char* rootpath;
 
@@ -146,18 +168,18 @@ void RunServer(int argc, char* argv[]) { //Running server
 	if((strncmp((rootpath=GetValue(argc, argv,"default")),"NULL",4)) == 0) { //if root path is not specified, default root path will set.
 		rootpath = "/var/www/html";	
 		printf("rootpath = %s\n", rootpath);
-	}
+	}  //setting the file location 
 	
-	char* realpath = malloc(255);
-	strcpy(realpath,rootpath);
-	printf("realpath before = %s\n", realpath);
+	char* dirpath = malloc(255); 
+	strcpy(dirpath,rootpath);
+	printf("dirpath before = %s\n", dirpath); 
 
 	for(;;) {	
 		if((connection = accept(listener,NULL,NULL)) == -1 )  {
 			perror("accept");		
 			exit(1);
 		}
-		handle_client(realpath,connection);
+		handle_client(dirpath,connection);
 	}		
 
 return; 		
