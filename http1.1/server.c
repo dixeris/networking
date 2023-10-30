@@ -32,20 +32,14 @@ BOOLEAN GetFlag(int argc, char* argv[], char* name) {
 	return FALSE;
 }*/
 
-const char* GetValue(int argc, char* argv[], char* name) { //Get value after : word 
-	const size_t nameLen = strlen(name);
+const char* GetValue(int argc, char* argv[], char* name) { //get value after : word 
+	const size_t namelen = strlen(name);
 	for (int i=0; i < argc; i++) {
-		if(strncmp(argv[i]+1,name,nameLen) == 0 
-		&& strlen(argv[i]) > 1+nameLen+1 
-		&& *(argv[i] + 1 + nameLen) == ':') {
-			return argv[i] + 1  + nameLen + 1;
+		if(strncmp(argv[i]+1,name,namelen) == 0) {
+			return argv[i] + 1  + namelen + 1;
 		}
-		else { 
-			return "NULL";
-		}
-	
-
 	}
+	return "NULL";
 }
 
 const int GetListener(void) { //function for getting listener file descriptor 
@@ -88,7 +82,7 @@ char* setGETHeader(char* dirpath, char* Header, char* path) {
 	printf("dirpath after = %s\n", dirpath2);
 	FILE* htmldata;
 	if((htmldata  = fopen(dirpath2, "r")) == 0) {
-		strcpy(Header, "HTTP/1.1 403 Forbidden\r\nContent-Type:text/html\r\n\n403 forbidden\n");		
+		strcpy(Header, "HTTP/1.1 404 Not Found\r\nContent-Type:text/html\r\n\n404 File Not Found\n");		
 		return(Header);
 		perror("fopen");		
 		exit(1);
@@ -163,12 +157,11 @@ void handle_client(char* dirpath,int connection) {	//setting the response messag
 
 void RunServer(int argc, char* argv[]) { //creating variables indicating the index file location specified by args, and running accept loop with handle_client function 
 	int listener, connection;
-	const char* rootpath;
-
+	const char* rootpath = GetValue(argc, argv, "default");
+	printf("rootpath = %s\n", rootpath);
 	listener = GetListener();
 
-
-	if((strncmp((rootpath=GetValue(argc, argv,"default")),"NULL",4)) == 0) { //if root path is not specified, default root path will set.
+	if((strncmp(rootpath,"NULL",4)) == 0) { //if root path is not specified, default root path will set.
 		rootpath = "/var/www/html";	
 		printf("rootpath = %s\n", rootpath);
 	}  //setting the file location 
