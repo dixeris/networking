@@ -5,6 +5,7 @@
 #include <string.h>
 #include "socketheader.h"
 #include <time.h>
+#include <stat.h>
 
 #define PORT "8080"
 
@@ -68,7 +69,8 @@ const int GetListener(void) { //function for getting listener file descriptor
 }
 
 char* setGETHeader(char* dirpath, char* Header, char* path) {	
-
+	struct stat sb; //stat construct for file size 
+	
 	char* dirpath2 = malloc(255);
 	strcpy(dirpath2,dirpath);	//setting directory path specified by args 
 
@@ -80,33 +82,38 @@ char* setGETHeader(char* dirpath, char* Header, char* path) {
 
 	strcat(dirpath2, path);
 	printf("dirpath after = %s\n", dirpath2);
-	FILE* htmldata;
-	if((htmldata  = fopen(dirpath2, "r")) == 0) {
-		strcpy(Header, "HTTP/1.1 404 Not Found\r\nContent-Type:text/html\r\n\n404 File Not Found\n");		
-		return(Header);
-		perror("fopen");		
-		exit(1);
-	}
-	free(dirpath2);
 
+	char* ext =  malloc(5*sizeof(char));
+	ext = strchr(dirpath2, '/');	
+	
+	if((strncmp(ext,"txt",3) == 0) || strncmp(ext,"html",4) == 0) { //if requested resource is txt/html 
+		FILE* htmldata;
 
-	char line[100];
-	int current_size = 8000;
-	char* responsedata = malloc(current_size); //if size of the responsedata is too  small for the file.. seg fault error will occur.
-	strcpy(responsedata,"\0");  //solve the below commented problem 
-	int inserted_size = 0;
+		if((htmldata  = fopen(dirpath2, "r")) == 0) {
 
-	while(fgets(line,100,htmldata) != 0) {
-		printf("%s",line);
+			strcpy(Header, "HTTP/1.1 404 Not Found\r\nContent-Type:text/html\r\n\n404 File Not Found\n");		
+			return(Header);
+			perror("fopen");		
+			exit(1);
 
-		if (inserted_size == current_size ) { 
-			responsedata = realloc(responsedata, (2 * current_size));  //realloc() invalid next size at second try 
-			current_size *= 2; 
 		}
+		char line[100];
+		int current_size = 8000;
+		char* responsedata = malloc(current_size); //if size of the responsedata is too  small for the file.. seg fault error will occur.
+		strcpy(responsedata,"\0");  //solve the below commented problem 
+		int inserted_size = 0;
 
-		strcat(responsedata,line);	
-		inserted_size += 100;
-	}	
+		while(fgets(line,100,htmldata) != 0) {
+			printf("%s",line);
+
+			if (inserted_size == current_size ) { 
+				responsedata = realloc(responsedata, (2 * current_size));  //realloc() invalid next size at second try 
+				current_size *= 2; 
+			}
+
+			strcat(responsedata,line);	
+			inserted_size += 100;
+		}	
 
 		printf("size of responsedata is %d\n", strlen(responsedata));
 		Header = realloc(Header,current_size+25); 
@@ -115,6 +122,35 @@ char* setGETHeader(char* dirpath, char* Header, char* path) {
 		responsedata = NULL;
 		return Header;
 
+
+	}
+
+	else if ((strncmp(ext,"jpg",3) == 0) || strncmp(ext,"png",3) == 0) { //if requested resoucre is image file 
+		
+//		char* magic = malloc(100);
+		FILE *file;
+		if((file  = fopen(dirpath2, "rb")) == 0) {
+			strcpy(Header, "HTTP/1.1 404 Not Found\r\nContent-Type:text/html\r\n\n404 File Not Found\n");		
+			return(Header);
+			perror("fopen");		
+			exit(1);
+		}
+		if((stat(file,&sb)) == -1) {
+			perror("stat");
+		}		
+		const size_t conlen = sb.st_size;
+		char* magic = malloc(conlen);	
+	
+		fread(magic, 1, conlen, file);
+	
+		for(int i =0; i < conlen; i++) 		
+			strcat(responsedata,magic[i]);	
+		printf("\n");
+		fclose(file);
+		free(magic);
+	}
+
+	free(dirpath2);
 }
 
 void handle_client(char* dirpath,int connection) {	//setting the response message, reading the request line, 
@@ -131,7 +167,7 @@ void handle_client(char* dirpath,int connection) {	//setting the response messag
 	char* path = strtok(NULL, " ");
 	if((strcmp(method,"GET")) == 0)  { //if requested method is "GET", 
 
-		strcpy(httpHeader,"HTTP/1.1 200 OK\nContent-Type:text/html; charset=utf-8\r\n\n"); //setting the response Header
+		strcpy(httpHeader,"HTTP/1.1 200 OK\r\nServer: Custom/1.0 (Debian)\r\nContent-Type: text/html\r\nContent-Length: 46\r\n\n"); //setting the response Header
 
 		httpHeader = setGETHeader(dirpath, httpHeader, path); //setting the response body 
 		printf("httpHeader = %s\n", httpHeader);
