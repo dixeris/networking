@@ -1,6 +1,16 @@
 1. reading index file 
 
 solve the problem of size of header pointer.
+-> solved by using malloc & realloc & inserted_size value & strlen;
 
-2. Error control(several response code) 
+2. buffer the content of a file specified by request
+->solved
 
+
+3. fix  GetValue function
+-> "else" position was wrong. 
+
+4. response other than text/html type. ex) png, ico, etc..
+-> only working on curl 
+
+Randomly(?) occurs Seg Fault or Corruption <- ?
