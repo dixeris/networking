@@ -1,3 +1,5 @@
+
+
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -5,7 +7,7 @@
 #include <string.h>
 #include "socketheader.h"
 #include <time.h>
-#include <stat.h>
+#include <sys/stat.h>
 
 #define PORT "8080"
 
@@ -68,89 +70,88 @@ const int GetListener(void) { //function for getting listener file descriptor
 	return listener;
 }
 
-char* setGETHeader(char* dirpath, char* Header, char* path) {	
+void setGETHeader(char* path, char* dirpath2, char* Header, char* Response) {	
 	struct stat sb; //stat construct for file size 
-	
-	char* dirpath2 = malloc(255);
-	strcpy(dirpath2,dirpath);	//setting directory path specified by args 
-
-	char lastpath = path[(strlen(path)-1)];
-	if(lastpath == '/') {
-	
-		strcat(path,"/index.html");
-	} //if last file is not specified in request, append the default index file path 
-
-	strcat(dirpath2, path);
-	printf("dirpath after = %s\n", dirpath2);
-
+	char* conlen;
+ 
 	char* ext =  malloc(5*sizeof(char));
-	ext = strchr(dirpath2, '/');	
+	ext = strrchr(path, '.')+1;	
+	printf("ext = %s\n", ext);
 	
-	if((strncmp(ext,"txt",3) == 0) || strncmp(ext,"html",4) == 0) { //if requested resource is txt/html 
+	if(((strncmp(ext,"txt",3)) == 0) || (strncmp(ext,"html",4)) == 0) { //if requested resource is txt/html 
+		printf("match\n");
 		FILE* htmldata;
 
 		if((htmldata  = fopen(dirpath2, "r")) == 0) {
-
+			
 			strcpy(Header, "HTTP/1.1 404 Not Found\r\nContent-Type:text/html\r\n\n404 File Not Found\n");		
-			return(Header);
 			perror("fopen");		
 			exit(1);
 
 		}
+
+		//Set the Response Header 
+		stat(dirpath2,&sb);
+		strcpy(Header, "HTTP/1.1 200 OK\r\nContent-Type:text/html\r\nServer: Custom/1.0(Debian)\r\nContent-Length: ");
+		sprintf(conlen, "%jd\r\n\n", sb.st_size);
+		strcat(Header, conlen);
+
+		//Set the Response Body 				
+//		Response = realloc(Response,(sb.st_size+100)); 
 		char line[100];
-		int current_size = 8000;
-		char* responsedata = malloc(current_size); //if size of the responsedata is too  small for the file.. seg fault error will occur.
-		strcpy(responsedata,"\0");  //solve the below commented problem 
-		int inserted_size = 0;
+//		int current_size = 8000;
+//		char* responsedata = malloc(sb.st_size+100); //if size of the responsedata is too  small for the file.. seg fault error will occur.
+	//	strcpy(Response,"\0");  //solve the below commented problem 
+//		int inserted_size = 0;
 
 		while(fgets(line,100,htmldata) != 0) {
 			printf("%s",line);
 
-			if (inserted_size == current_size ) { 
-				responsedata = realloc(responsedata, (2 * current_size));  //realloc() invalid next size at second try 
-				current_size *= 2; 
-			}
+//			if (inserted_size == current_size ) { 
+//				responsedata = realloc(responsedata, (2 * current_size));  //realloc() invalid next size at second try 
+//				current_size *= 2; 
+//			}
 
-			strcat(responsedata,line);	
-			inserted_size += 100;
+			strcat(Response,line);	
+//			inserted_size += 100;
 		}	
 
-		printf("size of responsedata is %d\n", strlen(responsedata));
-		Header = realloc(Header,current_size+25); 
-		strcat(Header,responsedata);
-		free(responsedata);
-		responsedata = NULL;
-		return Header;
 
-
+		printf("size of responsedata is %d\n", strlen(Response));
+//		strcpy(Response,responsedata);
+//		free(responsedata);
+//		responsedata = NULL;
+		
+		fclose(htmldata);
+		
 	}
 
-	else if ((strncmp(ext,"jpg",3) == 0) || strncmp(ext,"png",3) == 0) { //if requested resoucre is image file 
-		
-//		char* magic = malloc(100);
-		FILE *file;
-		if((file  = fopen(dirpath2, "rb")) == 0) {
+
+
+	else if ((strncmp(ext,"png",3)) == 0) { //if requested resoucre is image file 
+		FILE *imgdata;
+
+		if((imgdata  = fopen(dirpath2, "rb")) == 0) {
+
 			strcpy(Header, "HTTP/1.1 404 Not Found\r\nContent-Type:text/html\r\n\n404 File Not Found\n");		
-			return(Header);
 			perror("fopen");		
 			exit(1);
 		}
-		if((stat(file,&sb)) == -1) {
-			perror("stat");
-		}		
-		const size_t conlen = sb.st_size;
-		char* magic = malloc(conlen);	
+		
+		//Set the Response Header 		
+		stat(dirpath2, &sb);		
+		strcpy(Header, "HTTP/1.1 200 OK\r\nContent-Type:image/png\r\nServer: Custom/1.0(Debian)\r\nContent-Length: ");	
+		sprintf(conlen, "%jd\r\n\n", sb.st_size);
+		strcat(Header, conlen);
+		
+		//Set the Response Body
+		fread(Response, sizeof(char), sb.st_size, imgdata);
 	
-		fread(magic, 1, conlen, file);
-	
-		for(int i =0; i < conlen; i++) 		
-			strcat(responsedata,magic[i]);	
-		printf("\n");
-		fclose(file);
-		free(magic);
+		fclose(imgdata);
+
 	}
 
-	free(dirpath2);
+
 }
 
 void handle_client(char* dirpath,int connection) {	//setting the response message, reading the request line, 
@@ -165,13 +166,31 @@ void handle_client(char* dirpath,int connection) {	//setting the response messag
 
 	char* method = strtok(buffer, " "); 
 	char* path = strtok(NULL, " ");
+
+	char* dirpath2 = malloc(255);
+	strcpy(dirpath2,dirpath);	//setting directory path specified by args 
+
+	char lastpath = path[(strlen(path)-1)];
+	if(lastpath == '/') {
+	
+		strcat(path,"/index.html");
+	} //if last file is not specified in request, append the default index file path 
+
+	strcat(dirpath2, path);
+	printf("dirpath after = %s\n", dirpath2);
+
+	 struct  stat sb;
+	stat(dirpath2, &sb);
+	const off_t conlen = sb.st_size;
+
+	char* Response = malloc(conlen+100);
+
 	if((strcmp(method,"GET")) == 0)  { //if requested method is "GET", 
 
-		strcpy(httpHeader,"HTTP/1.1 200 OK\r\nServer: Custom/1.0 (Debian)\r\nContent-Type: text/html\r\nContent-Length: 46\r\n\n"); //setting the response Header
-
-		httpHeader = setGETHeader(dirpath, httpHeader, path); //setting the response body 
+		setGETHeader(path, dirpath2, httpHeader, Response); //setting the response Header 
 		printf("httpHeader = %s\n", httpHeader);
-		write(connection,httpHeader,strlen(httpHeader));  //sending to a client 
+		write(connection,httpHeader,strlen(httpHeader));  //sending to the client Response Header 
+		write(connection,Response,conlen);
 	}
 
 
@@ -187,6 +206,12 @@ void handle_client(char* dirpath,int connection) {	//setting the response messag
 
 	close(connection);
 	free(buffer);
+	buffer = NULL;
+	free(dirpath2);
+	dirpath2 = NULL;
+	free(Response);
+	Response = NULL;
+//	strcpy(Response,'\0');
 
 }
 	
